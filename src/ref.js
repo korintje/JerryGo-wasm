@@ -1,60 +1,257 @@
+/**
+ * @fileoverview 囲碁ライブラリ
+ * @author mimami24im@gmail.com
+ * コメントはGoogle JavaScript Style Guide
+ *    (http://cou929.nu/data/google_javascript_style_guide/)に従っている
+ */
 
+/**
+ * @namespace
+ */
+var migolib = {};
+
+/* 画像 */
+const imageB = new Image();
+const imageW = new Image();
+imageB.src = "./js/png/purple.png"
+imageW.src = "./js/png/yellow.png"
+
+imageB.onload = function(){
+  width = imageB.width;
+  height = imageB.height;
+  //console.log(width, height)
+};
+
+/* 定数 */
+migolib.con = {
+  PI2: Math.PI * 2, // 2π
+  eyest: { // 目の状態
+    b: 'B', // 黒石あり
+    w: 'W', // 白石あり
+    e: 'E'  // 石無し
+  },
+  col: {  // 色
+    ind: '#000033', // 藍
+    red: '#FF0000',  // 赤
+    blue: '#0000FF',  // 青
+    grn: '#1ab01a',  // 青
+    b: '#000000', // 黒
+    w: '#FAFAFA'  // 白
+  },
+  msg: {  // メッセージ
+    sthere: 'There is a stone here.',
+    cntput: 'You cannot put a stone here.'
+  }
+};
+
+/**
+ * 碁盤の目オブジェクト。x: x座標(pixel), y: y座標(pixel),
+ *  st: 目の状態。migolib.con.eyest の値をセット
+ * @typedef {{x: number, y: number, st: string}}
+ */
+migolib.Goeye;
+
+/**
+ * 碁盤クラス
+ * @param {HTMLElement} cvs 表示先HTMLCanvasElement
+ * @constructor
+ */
+migolib.Goban = function(cvs) {
+  /**
+   * canvas 2d context
+   * @type {?CanvasRenderingContext2D}
+   * @private
+   */
+  this.context_ = null;
+  if (cvs.getContext) {
+    this.context_ = cvs.getContext('2d');
+  }
+  /**
+   * canvasの幅(pixel)
+   * @type {number}
+   * @private
+   */
   this.cvwidth_ = ~~cvs.width;
-
+  /**
+   * canvasの高さ(pixel)
+   * @type {number}
+   * @private
+   */
   this.cvheight_ = ~~cvs.height;
-
+  /**
+   * 何路盤か
+   * @type {number}
+   * @private
+   */
   this.rownum_ = 19;
-
+  /**
+   * 碁盤の線の太さ(px)
+   * @type {number}
+   * @private
+   */
   this.banlw_ = 1;
-
+  /**
+   * 碁盤の星の半径(px)
+   * @type {number}
+   * @private
+   */
   this.starR_ = 3;
-
+  /**
+   * 碁盤のマージン(両側の合計が線の間隔の何倍か)
+   * @type {number}
+   * @private
+   */
   this.banmarg_ = 1.4;
-
+  /**
+   * 座標表示用余白(px)。マージンに追加される値
+   * @type {number}
+   * @private
+   */
   this.coormarg_ = 17;
-
+  /**
+   * 碁盤の目の間隔(px)。not integer
+   * @type {number}
+   * @private
+   */
   this.eyesep_ = 0;
-
+  /**
+   * 碁盤の目の間隔/2(px)。not integer
+   * @type {number}
+   * @private
+   */
   this.eyesephf_ = 0;
-
+  /**
+   * 石の半径(px)
+   * @type {number}
+   * @private
+   */
   this.stonR_ = 0;
-
+  /**
+   * 石の線の太さ(px)
+   * @type {number}
+   * @private
+   */
   this.stonLw_ = 1;
-
+  /**
+   * 最新着手表示円の半径(px)
+   * @type {number}
+   * @private
+   */
   this.lsmoveR_ = 0;
-
+  /**
+   * 候補手の線の太さ(px)
+   * @type {number}
+   * @private
+   */
   this.candLw_ = 2;
-
+  /**
+   * 候補手表示円の半径(px)
+   * @type {number}
+   * @private
+   */
   this.candR_ = 0;
-
+  /**
+   * 碁盤の目のx座標配列。一番左の目がthis.xArr_[0]
+   * @type {Array.<number>}
+   * @private
+   */
   this.xArr_ = [];
-
+  /**
+   * 碁盤の目のy座標配列。一番上の目がthis.yArr_[0]
+   * @type {Array.<number>}
+   * @private
+   */
   this.yArr_ = [];
-
+  /**
+   * 碁盤の星中心座標配列。this.stArr_[i][0] :x座標, this.stArr_[i][1] :y座標
+   * @type {Array.<Array.<number>>}
+   * @private
+   */
   this.stArr_ = [];
-
+  /**
+   * 碁盤の目情報配列。this.eyeArr_[ix][iy]
+   * ix:一番左の目が0 :iy 一番上の目が0
+   * @type {Array.<Array.<migolib.Goeye>>}
+   * @private
+   */
   this.eyeArr_ = [];
-
+  /**
+   * 最新着手座標。
+   * this.lsmove[0]: x座標index。一番左の目が0
+   * this.lsmove[1]: y座標index。一番上の目が0
+   * @type {?Array.<number>}
+   */
   this.lsmove = null;
-
+  /**
+   * 盤面中央座標。
+   * this.centpos[0]: x座標(px), this.centpos[1]: y座標(px)
+   * @type {Array.<number>}
+   */
   this.centpos = [Math.round(this.cvwidth_ / 2),
       Math.round(this.cvheight_ / 2)];
-
+  /**
+   * 盤面中央に表示する文字列。10文字以下とする
+   * @type {?string}
+   */
   this.dispstr = null;
-
+  /**
+   * 盤面中央に表示する文字列のフォントサイズ
+   * @type {number}
+   * @private
+   */
   this.dispfontsz_ = (this.cvwidth_) ? Math.round(this.cvwidth_ / 10) : 10;
-
+  /**
+   * 盤面中央に表示する文字列のフォント
+   * @type {string}
+   * @private
+   */
   this.dispfont_ = 'bold ' + this.dispfontsz_ +
       "px 'Arial', 'Tahoma', 'sans-serif'";
-
+  /**
+   * 盤面中央に表示する文字列の色
+   * @type {string}
+   * @private
+   */
   this.dispcol_ = migolib.con.col.ind;
 
+  // フォント情報設定
+  if (this.context_) {
+    this.context_.textAlign = 'center';
+    this.context_.textBaseline = 'middle';
+    this.context_.font = this.dispfont_;
+  }
+
+  /**
+   * 石が囲まれているかチェック済情報配列。
+   * チェック済ならtrue。それ以外の場合はfalse。
+   * this.eyeArr_[ix][iy] ix:一番左の目が0 :iy 一番上の目が0
+   * @type {Array.<Array.<boolean>>}
+   * @private
+   */
   this.srdChkArr_ = [];
-
+  /**
+   * 手数
+   * @type {number}
+   */
   this.movenum = 1;
-
+  /**
+   * コウ判定情報
+   * @type {{konum: number, kox: number, koy: number}}
+   * @private
+   */
   this.koinfo_ = {konum: -1, kox: -1, koy: -1};
-
+};
+/**
+ * 何路盤かセット
+ * @param {number} inrownum 何路盤か。5以上19以下の整数を設定
+ * @param {boolean=} showcoord 座標表示用余白をマージンに付加する場合はtrue
+ * @return {?string} エラーメッセージ。正常の場合はnull
+ */
+migolib.Goban.prototype.setrownum = function(inrownum, showcoord) {
+  var rownum = ~~inrownum;
+  if (rownum < 5 || rownum > 19) {
+    return 'rownum: ' + inrownum + ' must be between 5 and 19.';
+  }
 
   var coormarg = 0; // 座標表示用余白
   if (showcoord === true) {
@@ -70,26 +267,28 @@
     return 'canvas height is too narrow.';
   }
 
-  //
-
   var sep = Math.min(sepx, sepy);
-
-
-  //
-
-
   this.eyesep_ = sep;
   this.eyesephf_ = sep / 2;
   this.rownum_ = rownum;
-
+  this.stonR_ = Math.round(this.eyesephf_ - this.stonLw_);
+  //
+  this.stonB = imageB;
+  this.stonB.width = this.stonR_;
+  this.stonB.height = this.stonR_;
+  //this.stonB.onload = function(){
+  //  width = this.stonB.width;
+  //  height = this.stonB.height;
+  //  console.log(width, height);
+  //};
+  this.stonW = imageW;
+  this.stonW.width = this.stonR_
+  this.stonW.height = this.stonR_
+  //
   this.lsmoveR_ = Math.round(this.stonR_ / 2);
   this.candR_ = Math.round(this.stonR_ / 1.5);
-
   // 碁盤の目座標配列作成
   var banmarg = Math.round(sep * this.banmarg_ / 2);
-
-//
-
   this.xArr_ = [];
   this.yArr_ = [];
   this.xArr_[0] = banmarg + coormarg;
@@ -400,12 +599,9 @@ migolib.Goban.prototype.drawbanst = function() {
  * @private
  */
 migolib.Goban.prototype.drawban_ = function() {
-  var xalen = this.xArr_.length
-  var yalen = this.yArr_.length;
-  var x0 = this.xArr_[0]
-  var xl = this.xArr_[xalen - 1];
-  var y0 = this.yArr_[0]
-  var yl = this.yArr_[yalen - 1];
+  var xalen = this.xArr_.length, yalen = this.yArr_.length;
+  var x0 = this.xArr_[0], xl = this.xArr_[xalen - 1];
+  var y0 = this.yArr_[0], yl = this.yArr_[yalen - 1];
   var ctx = this.context_;
   ctx.save();
   ctx.globalAlpha = 1.0;

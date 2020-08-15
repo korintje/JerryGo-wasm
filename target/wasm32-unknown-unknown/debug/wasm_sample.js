@@ -279,9 +279,15 @@ async function init(input) {
     imports.wbg.__wbg_beginPath_562895fec2243bbd = function(arg0) {
         getObject(arg0).beginPath();
     };
+    imports.wbg.__wbg_fill_7ac1fa5ef59e0971 = function(arg0) {
+        getObject(arg0).fill();
+    };
     imports.wbg.__wbg_stroke_b60b281027593a65 = function(arg0) {
         getObject(arg0).stroke();
     };
+    imports.wbg.__wbg_arc_c3d11bece4d9dfb6 = handleError(function(arg0, arg1, arg2, arg3, arg4, arg5) {
+        getObject(arg0).arc(arg1, arg2, arg3, arg4, arg5);
+    });
     imports.wbg.__wbg_closePath_932dac3dc951538b = function(arg0) {
         getObject(arg0).closePath();
     };

@@ -1,22 +1,17 @@
 extern crate wasm_bindgen;
-//use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use goban;
-//use float_ord;
-//use ndarray;
-//use serde::{Serialize, Deserialize};
 extern crate console_error_panic_hook;
 
-/*+++++++++++ A macro to provide `println!(..)`-style syntax for `console.log` logging. ++++++++++++++*/
+// Macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
         web_sys::console::log_1(&format!( $( $t )* ).into());
     }
 }
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
-/*+++++++++++ A function to make a grid node of goban-eyes ++++++++++++++++++++++++++++++++++++++++++++*/
+// Function to make a grid node of goban-eyes
 fn size2grid_node (bansize: (u32, u32)) -> Vec<Vec<Vec<[usize; 2]>>> {
 	
 	let bansize_x = bansize.0 as usize ;
@@ -44,13 +39,12 @@ fn size2grid_node (bansize: (u32, u32)) -> Vec<Vec<Vec<[usize; 2]>>> {
 	}
 
 	log!("bansize = {}", bansize_x) ;
-	log!("{:?}", node) ;
+	log!("NODE: {:?}", node) ;
 	node
 
 }
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
-/*+++++++++++ A function to make a grid coord of goban-eyes +++++++++++++++++++++++++++++++++++++++++++*/
+// Function to make a grid coord of goban-eyes
 fn size2grid_coords (bansize: (u32, u32), cv_w: f64, cv_h: f64 ) -> Vec<Vec<[f64; 2]>> {
 
 	let ratio_edge2sep = 1.4 ; // 碁盤のマージン(両側の合計が線の間隔の何倍か)
@@ -71,10 +65,35 @@ fn size2grid_coords (bansize: (u32, u32), cv_w: f64, cv_h: f64 ) -> Vec<Vec<[f64
 		}
 	}
 
-	log!("{:?}", coords) ;
+	log!("COORDS: {:?}", coords) ;
 	coords 
 }
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
+// Function to make a grid coord of goban-stars
+fn size2stars (bansize: (u32, u32)) -> Vec<Vec<usize>>	{
+	let mut stars = vec![] ;
+	let xlen = bansize.0 as usize;
+	let ylen = bansize.1 as usize;
+	if xlen % 2 == 1 && ylen % 2 == 1 {
+		if xlen / 4 >= 3 && ylen / 4 >= 3 {
+			let ixs = vec![3, (xlen / 2), (xlen - 4)] ;
+			let iys = vec![3, (ylen / 2), (ylen - 4)] ;
+			for &ix in ixs.iter() {
+				for &iy in iys.iter() {
+					let star = vec![ix, iy] ;
+					stars.push(star) ;
+				}
+			}
+		} else {
+			let star = vec![(xlen / 2), (ylen / 2)] ;
+			stars.push(star) ;
+		}
+	}
+
+	log!("STARS: {:?}", stars) ;
+	stars
+}
+
 
 /*+++++++++++ Themes ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 //#[derive(Debug, Serialize, Deserialize)]
@@ -115,6 +134,7 @@ struct View {
 	reset_button:		web_sys::Element,
 	export_button:		web_sys::Element,
 	coords:				Vec<Vec<[f64; 2]>>,
+	stars:				Vec<Vec<usize>>,
 	node:				Vec<Vec<Vec<[usize; 2]>>>,	
 	}
 
@@ -137,23 +157,24 @@ impl MyGame {
 														export_button:		document.get_element_by_id(export_button_id).unwrap(),
 														coords:				size2grid_coords((9, 9), 463.0, 463.0),
 														node:				size2grid_node((9, 9)),
+														stars:				size2stars((9, 9)),
 													},
 											//theme:	Themes::Jerry,
 										} ;
-					log!("My Game has been created") ; 
+					log!("My Game has been generated") ; 
 					log!("{:?}", mygame.view.canvas) ;
 					mygame
 				}
 
 	fn draw_canvas (&self) {
-		//let canvas_ : web_sys::HtmlCanvasElement = self.view.canvas
+
+		// Get canvas
 		let ctx = self.view.canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
 
+		// Draw gridlines of goban
 		ctx.set_global_alpha(1.0);
 		ctx.set_line_width(1.0);
-		ctx.set_stroke_style(&JsValue::from("green"));
-		ctx.set_fill_style(&JsValue::from("brown"));
-
+		ctx.set_stroke_style(&JsValue::from("blue"));
 		for (n, nlist) in self.view.node.iter().enumerate() {
 			for (m, mlist) in nlist.iter().enumerate() {
 				for (c, clist) in mlist.iter().enumerate() {
@@ -166,65 +187,14 @@ impl MyGame {
 			}
 		}
 
-		//Set line-drawing parameters
-		//ctx.lineWidth	=	self.linewidth;
-		//ctx.strokeStyle	=	self.linecolor;
-		//ctx.fillStyle	=	self.linecolor;
+		// Draw stars on goban
+		ctx.set_fill_style(&JsValue::from("blue"));
+		for star in &self.view.stars {
+			ctx.begin_path() ;
+			ctx.arc(self.view.coords[star[0]][star[1]][0], self.view.coords[star[0]][star[1]][1], 3.0, 0.0, std::f64::consts::PI*2.0) ;
+			ctx.fill();
+		}
 
-				/*
-		var xalen = this.xArr_.length
-		var yalen = this.yArr_.length;
-		var x0 = this.xArr_[0], xl = this.xArr_[xalen - 1];
-		var y0 = this.yArr_[0], yl = this.yArr_[yalen - 1];
-
-
-
-		for (var i = 0; i < xalen; i++) {
-			ctx.beginPath()
-			ctx.moveTo(this.xArr_[i], y0);
-			ctx.lineTo(this.xArr_[i], yl);
-			ctx.closePath();
-			ctx.stroke();
-		  }
-		  for (var i = 0; i < yalen; i++) {
-			ctx.beginPath()
-			ctx.moveTo(x0, this.yArr_[i]);
-			ctx.lineTo(xl, this.yArr_[i]);
-			ctx.closePath();
-			ctx.stroke();
-		  }
-		
-		*/
-
-		/*
-
-		ctx.begin_path();
-
-		// Draw the outer circle.
-
-		// Draw the outer circle.
-		ctx
-			.arc(75.0, 75.0, 50.0, 0.0, std::f64::consts::PI * 2.0)
-			.unwrap();
-	
-		// Draw the mouth.
-		ctx.move_to(110.0, 75.0);
-		ctx.arc(75.0, 75.0, 35.0, 0.0, std::f64::consts::PI).unwrap();
-	
-		// Draw the left eye.
-		ctx.move_to(65.0, 65.0);
-		ctx
-			.arc(60.0, 65.0, 5.0, 0.0, std::f64::consts::PI * 2.0)
-			.unwrap();
-	
-		// Draw the right eye.
-		ctx.move_to(95.0, 65.0);
-		ctx
-			.arc(90.0, 65.0, 5.0, 0.0, std::f64::consts::PI * 2.0)
-			.unwrap();
-	
-		ctx.stroke();
-		*/
 	}
 	
 	//fn load_game (kifu: &str) {}
@@ -262,13 +232,3 @@ pub fn start () {
 	mygame.draw_canvas() ;
 
 }
-
-//let mut my_go = new goban
-
-
-//
-//let mut mygame = goban::rules::game_builder::GameBuilder::default().size
-
-
-//#[wasm_bindgen]
-
