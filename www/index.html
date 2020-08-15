@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+  <head>
+    <title>文書のタイトル</title>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+  </head>
+  <body>
+    <!-- Note the usage of `type=module` here as this is an ES6 module -->
+    <script type="module">
+    
+      import { start, default as init } from './wasm_sample.js';
+
+      async function run() {
+        await init('./wasm_sample_bg.wasm');
+        addEventListener('load', start());
+        // make the function available to the browser
+        // window.start = start;
+      }
+      run();
+
+    </script>
+
+    <!-- <label type="hidden" id="start" onload="start()"> Start </label>> -->
+
+    <div class="primally_container">
+
+      <div class="title_container">
+        <h1 class="ctitle">ゼリーの碁盤</h1>
+      </div>
+  
+      <div class="canvas_container">
+        <div>
+          <!-- <div id="ldmsg" class="myldmsg">ロード中です</div> -->
+          <canvas id="canvas_0" class="cv" width="463" height="463"></canvas>
+        </div>
+      </div>
+  
+      <div class="ban_act_container">
+        <p>アゲハマ</p>
+        <p id="bhama">黒 × 0個</p>
+        <p id="whama">白 × 0個</p>
+        <select id="bansize_selector_0" name="rownum" >
+          <option value="6" selected>6路盤</option>
+          <option value="9">9路盤</option>
+          <option value="13">13路盤</option>
+          <option value="19">19路盤</option>
+        </select>
+        <select id="theme_selector_0" name="rownum" >
+          <option value="6" selected>6路盤</option>
+          <option value="9">9路盤</option>
+          <option value="13">13路盤</option>
+          <option value="19">19路盤</option>
+        </select>
+      </div>
+  
+      <div class="stn_act_container">
+        <p id="backward_button_0" class="msr_btn13" ontouchstart=""><a href="#">一手戻る</a></p>
+        <p id="forward_button_0" class="msr_btn13" ontouchstart=""><a href="#">一手進む</a></p>
+      </div>
+  
+      <div class="stn_act_container">
+        <p id="pass_button_0" class="msr_btn13" ontouchstart=""><a href="#">パス</a></p>
+        <p id="reset_button_0" class="msr_btn13" ontouchstart=""><a href="#">碁盤を初期化</a></p>
+      </div>
+  
+      <div class="twt_act_container">
+        <p id="export_button_0" class="msr_btn12" ontouchstart=""><a href="#">盤面をTwitterに貼る</a></p>
+      </div>
+  
+      <div class="twt_act_container">
+        <textarea id="copytext"></textarea>
+        <p id="twt_arrow">←←← ツイートに貼れます</p>
+      </div>
+  
+    </div>
+
+    <form>
+      <input 
+          type="submit" 
+          value="Reverse string" 
+          onClick="start()">
+    </form> 
+
+  </body>
+
+</html>
+

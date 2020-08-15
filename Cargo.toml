@@ -1,0 +1,31 @@
+[package]
+name = "wasm_sample"
+version = "0.1.0"
+authors = ["hosomi"]
+edition = "2018"
+
+[dependencies]
+wasm-bindgen = "0.2.67"
+js-sys = "0.3.44"
+goban = "0.12.2"
+console_error_panic_hook = "0.1.6"
+ndarray = "0.13.0"
+serde = "1.0.115"
+float-ord = "0.2.0"
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+  'CanvasRenderingContext2d',
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'HtmlButtonElement',
+  'HtmlSelectElement',
+  'HtmlAnchorElement',
+  'Window',
+  "console",
+]
+
+[lib]
+crate-type = ["cdylib"]
