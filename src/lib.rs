@@ -196,6 +196,40 @@ impl MyGame {
 		}
 
 	}
+
+	fn get_position () ->  {
+
+	}
+
+	migolib.Goban.prototype.getEyeIdx = function(cx, cy) {
+		var xidx, yidx;
+		var xlen = this.xArr_.length, ylen = this.yArr_.length;
+		var x0 = this.xArr_[0];
+		var xl = this.xArr_[xlen - 1];
+		var y0 = this.yArr_[0];
+		var yl = this.yArr_[ylen - 1];
+		//NOTE: 実際の線間隔はthis.eyesep_では無いが、誤差はせいぜい1pxなので
+		//    厳密なチェックはしない
+		if (cx <= x0) {
+		  xidx = 0;
+		} else if (cx > xl) {
+		  xidx = xlen - 1;
+		} else {
+		  xidx = ~~((cx - x0 + this.eyesephf_) / this.eyesep_);
+		}
+		if (cy <= y0) {
+		  yidx = 0;
+		} else if (cy > yl) {
+		  yidx = ylen - 1;
+		} else {
+		  yidx = ~~((cy - y0 + this.eyesephf_) / this.eyesep_);
+		}
+		return [xidx, yidx];
+	  };
+
+	fn put_stone () -> game: goban::rules::game::Game {
+
+	}
 	
 	//fn load_game (kifu: &str) {}
 
