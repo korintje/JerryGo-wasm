@@ -1,0 +1,22 @@
+/*
+.canvas_container { 
+    display: flex; 
+    text-align:center;
+    box-sizing: border-box;
+}
+*/
+
+.canvas_container {
+    position: relative;
+    display:inline-block;
+}
+
+.canvas_container .cv {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.canvas_container #layer_stone {
+    position: relative;
+}

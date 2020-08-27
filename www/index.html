@@ -2,6 +2,7 @@
   <head>
     <title>文書のタイトル</title>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <link rel="stylesheet" href="./style.css">
   </head>
   <body>
     <!-- Note the usage of `type=module` here as this is an ES6 module -->
@@ -28,10 +29,10 @@
       </div>
   
       <div class="canvas_container">
-        <div>
-          <!-- <div id="ldmsg" class="myldmsg">ロード中です</div> -->
-          <canvas id="canvas_0" class="cv" width="463" height="463"></canvas>
-        </div>
+        <!-- <div id="ldmsg" class="myldmsg">ロード中です</div> -->
+        <canvas id="layer_goban" class="cv" width="463" height="463"></canvas>
+        <canvas id="layer_dummy" class="cv" width="463" height="463"></canvas>
+        <canvas id="layer_stone" class="cv" width="463" height="463"></canvas>
       </div>
   
       <div class="ban_act_container">

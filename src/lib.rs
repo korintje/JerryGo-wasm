@@ -3,6 +3,10 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use goban;
 extern crate console_error_panic_hook;
+use std::rc::Rc;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::borrow::BorrowMut;
 
 // Macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -94,9 +98,8 @@ fn size2stars (bansize: (u32, u32)) -> Vec<Vec<usize>>	{
 	stars
 }
 
-
-/*+++++++++++ Themes ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 //#[derive(Debug, Serialize, Deserialize)]
+/*
 enum Themes {
     Jerry {
         bancolor:  String,
@@ -109,6 +112,7 @@ enum Themes {
 		linewidth: i32,
     },
 }
+*/
 
 /*
 let themes_string = r#"{
@@ -117,7 +121,6 @@ let themes_string = r#"{
 					}"# ; 
 let themes: BTreeMap<String, f64> = serde_json::from_str(s).unwrap();
 */
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
 struct MyGame {
 	game: goban::rules::game::Game,
@@ -126,7 +129,9 @@ struct MyGame {
 }
 
 struct View {
-	canvas:				web_sys::HtmlCanvasElement,
+	canvas_goban:		web_sys::HtmlCanvasElement,
+	canvas_stone:		web_sys::HtmlCanvasElement,
+	canvas_dummy:		web_sys::HtmlCanvasElement,
 	bansize_selector:	web_sys::Element,
 	theme_selector:		web_sys::Element,
 	forward_button:		web_sys::Element,
@@ -142,34 +147,37 @@ struct View {
 
 impl MyGame {
 
-	fn new(bansize: (u32, u32), canvas_id: &str, bansize_selector_id: &str, theme_selector_id: &str, forward_button_id: &str, backward_button_id: &str, reset_button_id: &str, export_button_id: &str) 
+	fn new (bansize: (u32, u32), canvas_goban_id: &str, canvas_stone_id: &str, canvas_dummy_id: &str, bansize_selector_id: &str, theme_selector_id: &str, forward_button_id: &str, backward_button_id: &str, reset_button_id: &str, export_button_id: &str) 
 		-> MyGame {
 					let document = web_sys::window().unwrap().document().unwrap() ;
 					let mygame = MyGame {
 											game:	goban::rules::game_builder::GameBuilder::default().size(bansize).rule(goban::rules::Rule::Japanese).build().unwrap(),
 											view:	View {
-														canvas:				document.get_element_by_id(canvas_id).unwrap().dyn_into::<web_sys::HtmlCanvasElement>().map_err(|_| ()).unwrap(),
+														canvas_goban:		document.get_element_by_id(canvas_goban_id).unwrap().dyn_into::<web_sys::HtmlCanvasElement>().map_err(|_| ()).unwrap(),
+														canvas_stone:		document.get_element_by_id(canvas_stone_id).unwrap().dyn_into::<web_sys::HtmlCanvasElement>().map_err(|_| ()).unwrap(),
+														canvas_dummy:		document.get_element_by_id(canvas_dummy_id).unwrap().dyn_into::<web_sys::HtmlCanvasElement>().map_err(|_| ()).unwrap(),
 														bansize_selector:	document.get_element_by_id(bansize_selector_id).unwrap(),
 														theme_selector:		document.get_element_by_id(theme_selector_id).unwrap(),
 														forward_button:		document.get_element_by_id(forward_button_id).unwrap(),
 														backward_button:	document.get_element_by_id(backward_button_id).unwrap(),
 														reset_button:		document.get_element_by_id(reset_button_id).unwrap(),
 														export_button:		document.get_element_by_id(export_button_id).unwrap(),
-														coords:				size2grid_coords((9, 9), 463.0, 463.0),
-														node:				size2grid_node((9, 9)),
-														stars:				size2stars((9, 9)),
+														coords:				size2grid_coords(bansize, 463.0, 463.0),
+														node:				size2grid_node(bansize),
+														stars:				size2stars(bansize),
 													},
 											//theme:	Themes::Jerry,
 										} ;
 					log!("My Game has been generated") ; 
-					log!("{:?}", mygame.view.canvas) ;
+					log!("{:?}", mygame.view.canvas_goban) ;
 					mygame
 				}
 
-	fn draw_canvas (&self) {
+
+	fn draw_ban (&self) {
 
 		// Get canvas
-		let ctx = self.view.canvas.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
+		let ctx = self.view.canvas_goban.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
 
 		// Draw gridlines of goban
 		ctx.set_global_alpha(1.0);
@@ -177,7 +185,7 @@ impl MyGame {
 		ctx.set_stroke_style(&JsValue::from("blue"));
 		for (n, nlist) in self.view.node.iter().enumerate() {
 			for (m, mlist) in nlist.iter().enumerate() {
-				for (c, clist) in mlist.iter().enumerate() {
+				for clist in mlist.iter() {
 					ctx.begin_path() ;
 					ctx.move_to(self.view.coords[n as usize][m as usize][0], self.view.coords[n as usize][m as usize][1]);
 					ctx.line_to(self.view.coords[clist[0] as usize][clist[1] as usize][0], self.view.coords[clist[0] as usize][clist[1] as usize][1]);
@@ -191,46 +199,140 @@ impl MyGame {
 		ctx.set_fill_style(&JsValue::from("blue"));
 		for star in &self.view.stars {
 			ctx.begin_path() ;
-			ctx.arc(self.view.coords[star[0]][star[1]][0], self.view.coords[star[0]][star[1]][1], 3.0, 0.0, std::f64::consts::PI*2.0) ;
+			ctx.arc(self.view.coords[star[0]][star[1]][0], self.view.coords[star[0]][star[1]][1], 3.0, 0.0, std::f64::consts::PI*2.0).unwrap() ;
 			ctx.fill();
 		}
 
 	}
 
-	fn get_position () ->  {
+	/*
+	fn clear_layer (&self) {
+
+	}
+	*/
+
+
+	fn put_stone (& mut self, cx: f64, cy: f64) {
+		let stone_idx_r = self.get_index_radius(cx, cy) ;
+		self.game.play(goban::rules::Move::Play(stone_idx_r.0 as u8, stone_idx_r.1 as u8)) ;
+		let history = self.game.plays() ;
+		let latest_goban = history.last().unwrap() ;
+		self.clear_stone() ;
+		for string in latest_goban.go_strings().iter() {
+			match string {
+				Some(i) => log!("String is {:?}, Color is {:?}, Coodination is {:?}", i.as_ref(), i.as_ref().color, i.as_ref().stones()),
+				_ => (),
+			}
+			//log!("string: {:?}", string) ;
+			//if string != None {
+			//	self.draw_stone(string.stones().0, string.stones().1, stone_idx_r.2, 1.0) ;
+			//}
+		}
+	}
+
+	fn put_dummy (&self, cx: f64, cy: f64) {
+		let stone_idx_r = self.get_index_radius(cx, cy) ;
+		self.clear_dummy() ;
+		self.draw_dummy(stone_idx_r.0, stone_idx_r.1, stone_idx_r.2, 0.6) ;
+		log!("Dummy Index: ({}, {})", stone_idx_r.0, stone_idx_r.1) ;
+	}
+
+	fn get_index_radius (&self, cx: f64, cy: f64) -> (usize, usize, f64)  {
+
+		// Get canvas
+		// let ctx = self.view.canvas_dummy.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
+
+		// Get size parameter of Goban
+		let xidx ;
+		let yidx ;
+		let size = self.game.goban().size() ;
+		let xlen = size.0 as usize;
+		let ylen = size.1 as usize;
+		let x0   = self.view.coords[0][0][0] ;
+		let y0   = self.view.coords[0][0][1] ;
+		let xl   = self.view.coords[xlen - 1][ylen - 1][0];
+		let yl   = self.view.coords[xlen - 1][ylen - 1][1];
+		let sepx = (xl - x0) / (xlen as f64 - 1.0) ;
+		let sepy = (yl - y0) / (ylen as f64 - 1.0) ;
+
+		// Get x index
+		if cx <= x0 {
+			xidx = 0 ;
+		} else if cx > xl {
+			xidx = xlen - 1 ;
+		} else {
+			xidx = ((cx - x0 + sepx / 2.0) / sepx) as usize ;
+		}
+
+		// Get y index
+		if cy <= y0 {
+			yidx = 0 ;
+		} else if cy > yl {
+			yidx = ylen - 1;
+		} else {
+			yidx = ((cy - y0 + sepy / 2.0) / sepy) as usize ;
+		}
+
+		// Calc stone radius
+		let stone_lw = 1.0 ;
+		let stone_radius = (sepx / 2.0 - stone_lw).round();
+
+		// Return tuple
+		(xidx, yidx, stone_radius)
 
 	}
 
-	migolib.Goban.prototype.getEyeIdx = function(cx, cy) {
-		var xidx, yidx;
-		var xlen = this.xArr_.length, ylen = this.yArr_.length;
-		var x0 = this.xArr_[0];
-		var xl = this.xArr_[xlen - 1];
-		var y0 = this.yArr_[0];
-		var yl = this.yArr_[ylen - 1];
-		//NOTE: 実際の線間隔はthis.eyesep_では無いが、誤差はせいぜい1pxなので
-		//    厳密なチェックはしない
-		if (cx <= x0) {
-		  xidx = 0;
-		} else if (cx > xl) {
-		  xidx = xlen - 1;
-		} else {
-		  xidx = ~~((cx - x0 + this.eyesephf_) / this.eyesep_);
-		}
-		if (cy <= y0) {
-		  yidx = 0;
-		} else if (cy > yl) {
-		  yidx = ylen - 1;
-		} else {
-		  yidx = ~~((cy - y0 + this.eyesephf_) / this.eyesep_);
-		}
-		return [xidx, yidx];
-	  };
-
-	fn put_stone () -> game: goban::rules::game::Game {
-
+	fn clear_dummy (&self) {
+		let ctx = self.view.canvas_dummy.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
+		ctx.clear_rect(0.0, 0.0, 463.0, 463.0);
 	}
 	
+	fn clear_stone (&self) {
+		let ctx = self.view.canvas_stone.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
+		ctx.clear_rect(0.0, 0.0, 463.0, 463.0);
+	}
+
+	fn draw_dummy (&self, xidx: usize, yidx: usize, stone_radius: f64, alpha: f64) {
+
+		// Get canvas for dummy stone
+		let ctx = self.view.canvas_dummy.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
+		//ctx.clear_rect(0.0, 0.0, 463.0, 463.0);
+		ctx.set_global_alpha(alpha);
+
+		// Get turn
+		let turn = self.game.turn() ;
+		match turn {
+			goban::rules::Player::Black => ctx.set_stroke_style(&JsValue::from("black")),
+			goban::rules::Player::White => ctx.set_stroke_style(&JsValue::from("white")),
+		} 
+
+		// Draw dummy stone
+		ctx.begin_path() ;
+		ctx.arc(self.view.coords[xidx][yidx][0], self.view.coords[xidx][yidx][1], stone_radius, 0.0, std::f64::consts::PI*2.0).unwrap();
+		ctx.fill();
+
+	}
+
+	fn draw_stone (&self, xidx: usize, yidx: usize, stone_radius: f64, alpha: f64) {
+
+		// Get canvas for dummy stone
+		let ctx = self.view.canvas_stone.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
+		ctx.set_global_alpha(alpha);
+
+		// Get turn
+		let turn = self.game.turn() ;
+		match turn {
+			goban::rules::Player::Black => ctx.set_stroke_style(&JsValue::from("black")),
+			goban::rules::Player::White => ctx.set_stroke_style(&JsValue::from("white")),
+		} 
+
+		// Draw dummy stone
+		ctx.begin_path() ;
+		ctx.arc(self.view.coords[xidx][yidx][0], self.view.coords[xidx][yidx][1], stone_radius, 0.0, std::f64::consts::PI*2.0).unwrap();
+		ctx.fill();
+
+	}
+
 	//fn load_game (kifu: &str) {}
 
 	//fn update_view (theme: Theme, game: goban::rules::game::Game) {}
@@ -249,13 +351,18 @@ impl MyGame {
 
 #[wasm_bindgen]
 pub fn start () {
+
+	// Enable console
 	console_error_panic_hook::set_once();
-	log!("START") ; 
-	//panic::set_hook(Box::new(console_error_panic_hook::hook));
+	log!("START!!!") ; 
+
+	// Create a Go-game instance
 	let bansize = (9,9) ;
 	let mygame = MyGame::new(
 		bansize,
-		"canvas_0",
+		"layer_goban",
+		"layer_stone",
+		"layer_dummy",
 		"bansize_selector_0", 
 		"theme_selector_0", 
 		"forward_button_0", 
@@ -263,6 +370,59 @@ pub fn start () {
 		"reset_button_0", 
 		"export_button_0",	
 	) ;
-	mygame.draw_canvas() ;
+	let mygame_rc = Rc::new(RefCell::new(mygame)) ;
 
+	// Draw Goban for the Go-game
+	// mygame.draw_ban() ;
+	mygame_rc.as_ref().borrow().draw_ban() ;
+
+	// Bind Events to the Goban
+	
+	let entered = Rc::new(Cell::new(false)) ;
+
+	{
+		//let mygame_closure = Rc::clone(&mygame_rc) ;
+		let entered = entered.clone() ;
+		let closure = Closure::wrap(Box::new(move|_event: web_sys::MouseEvent|{
+			entered.set(true);
+		})as Box<dyn FnMut(_)>) ;
+		mygame_rc.as_ref().borrow().view.canvas_stone.add_event_listener_with_callback("mouseenter", closure.as_ref().unchecked_ref()).unwrap() ;
+		closure.forget() ;
+	}
+
+	{
+		let mygame_closure = mygame_rc.clone() ;
+		let entered = entered.clone() ;
+		let closure = Closure::wrap(Box::new(move|event: web_sys::MouseEvent|{
+			if entered.get() {
+				mygame_closure.as_ref().borrow_mut().put_dummy(event.offset_x() as f64, event.offset_y() as f64) ;
+			}
+		})as Box<dyn FnMut(_)>) ;
+		mygame_rc.as_ref().borrow().view.canvas_stone.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref()).unwrap() ;
+		closure.forget() ;
+	}
+
+	{
+		let mygame_closure = mygame_rc.clone() ;
+		let entered = entered.clone() ;
+		let closure = Closure::wrap(Box::new(move|_event: web_sys::MouseEvent|{
+			mygame_closure.as_ref().borrow_mut().clear_dummy() ;
+			entered.set(false) ;
+		})as Box<dyn FnMut(_)>) ;
+		mygame_rc.as_ref().borrow().view.canvas_stone.add_event_listener_with_callback("mouseleave", closure.as_ref().unchecked_ref()).unwrap() ;
+		closure.forget() ;
+	}
+
+	{
+		let mygame_closure = mygame_rc.clone() ;
+		let entered = entered.clone() ;
+		let closure = Closure::wrap(Box::new(move|event: web_sys::MouseEvent|{
+			if entered.get() {
+				mygame_closure.as_ref().borrow_mut().put_stone(event.offset_x() as f64, event.offset_y() as f64) ;
+			}
+		})as Box<dyn FnMut(_)>) ;
+		mygame_rc.as_ref().borrow_mut().view.canvas_stone.add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref()).unwrap() ;
+		closure.forget() ;
+	}
+	
 }
