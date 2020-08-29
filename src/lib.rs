@@ -6,7 +6,7 @@ extern crate console_error_panic_hook;
 use std::rc::Rc;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::borrow::BorrowMut;
+//use std::borrow::BorrowMut;
 
 // Macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -69,7 +69,7 @@ fn size2grid_coords (bansize: (u32, u32), cv_w: f64, cv_h: f64 ) -> Vec<Vec<[f64
 		}
 	}
 
-	log!("COORDS: {:?}", coords) ;
+	//log!("COORDS: {:?}", coords) ;
 	coords 
 }
 
@@ -94,7 +94,7 @@ fn size2stars (bansize: (u32, u32)) -> Vec<Vec<usize>>	{
 		}
 	}
 
-	log!("STARS: {:?}", stars) ;
+	//log!("STARS: {:?}", stars) ;
 	stars
 }
 
@@ -169,7 +169,7 @@ impl MyGame {
 											//theme:	Themes::Jerry,
 										} ;
 					log!("My Game has been generated") ; 
-					log!("{:?}", mygame.view.canvas_goban) ;
+					//log!("{:?}", mygame.view.canvas_goban) ;
 					mygame
 				}
 
@@ -205,24 +205,34 @@ impl MyGame {
 
 	}
 
-	/*
-	fn clear_layer (&self) {
-
-	}
-	*/
-
-
 	fn put_stone (& mut self, cx: f64, cy: f64) {
-		let stone_idx_r = self.get_index_radius(cx, cy) ;
-		self.game.play(goban::rules::Move::Play(stone_idx_r.0 as u8, stone_idx_r.1 as u8)) ;
-		let history = self.game.plays() ;
-		let latest_goban = history.last().unwrap() ;
+		let stone_idx_r = self.get_index_radius(cx, cy) ;	
+		let judge = self.game.legals().find(|&m| m == (stone_idx_r.0 as u8, stone_idx_r.1 as u8)) ;
+		match judge {
+			Some(i) => { 
+						self.game.play(goban::rules::Move::Play(i.0, i.1));
+						log!("{},{}", i.0, i.1) ; 
+					},
+			_		=> { log!("そこには置けません"); },
+		}
+
+		let goban = self.game.goban() ;
 		self.clear_stone() ;
-		for string in latest_goban.go_strings().iter() {
+		for string in goban.go_strings().iter() {
+			//let color: goban::pieces::stones::Color ;
+			//let coord: Vec<u8> ;
 			match string {
-				Some(i) => log!("String is {:?}, Color is {:?}, Coodination is {:?}", i.as_ref(), i.as_ref().color, i.as_ref().stones()),
+				Some(i) => { let color = i.as_ref().color;
+							 let coord = i.as_ref().stones().into_iter().collect::<Vec<_>>() ;
+							 for c in coord.iter() {
+								self.draw_stone(color, c.0 as usize, c.1 as usize, stone_idx_r.2, 1.0) ;
+							 }
+							 //log!("{:?}", color) ;
+							 //log!("{:?}", coord) ;
+							},
 				_ => (),
 			}
+			
 			//log!("string: {:?}", string) ;
 			//if string != None {
 			//	self.draw_stone(string.stones().0, string.stones().1, stone_idx_r.2, 1.0) ;
@@ -234,7 +244,7 @@ impl MyGame {
 		let stone_idx_r = self.get_index_radius(cx, cy) ;
 		self.clear_dummy() ;
 		self.draw_dummy(stone_idx_r.0, stone_idx_r.1, stone_idx_r.2, 0.6) ;
-		log!("Dummy Index: ({}, {})", stone_idx_r.0, stone_idx_r.1) ;
+		//log!("Dummy Index: ({}, {})", stone_idx_r.0, stone_idx_r.1) ;
 	}
 
 	fn get_index_radius (&self, cx: f64, cy: f64) -> (usize, usize, f64)  {
@@ -301,9 +311,10 @@ impl MyGame {
 
 		// Get turn
 		let turn = self.game.turn() ;
+		log!("{:?}", turn) ;
 		match turn {
-			goban::rules::Player::Black => ctx.set_stroke_style(&JsValue::from("black")),
-			goban::rules::Player::White => ctx.set_stroke_style(&JsValue::from("white")),
+			goban::rules::Player::Black => ctx.set_fill_style(&JsValue::from("green")),
+			goban::rules::Player::White => ctx.set_fill_style(&JsValue::from("white")),
 		} 
 
 		// Draw dummy stone
@@ -313,20 +324,18 @@ impl MyGame {
 
 	}
 
-	fn draw_stone (&self, xidx: usize, yidx: usize, stone_radius: f64, alpha: f64) {
+	fn draw_stone (&self, color: goban::pieces::stones::Color, xidx: usize, yidx: usize, stone_radius: f64, alpha: f64) {
 
 		// Get canvas for dummy stone
 		let ctx = self.view.canvas_stone.get_context("2d").unwrap().unwrap().dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap() ;
 		ctx.set_global_alpha(alpha);
 
-		// Get turn
-		let turn = self.game.turn() ;
-		match turn {
-			goban::rules::Player::Black => ctx.set_stroke_style(&JsValue::from("black")),
-			goban::rules::Player::White => ctx.set_stroke_style(&JsValue::from("white")),
+		// Draw Stone
+		match color {
+			goban::pieces::stones::Color::Black => ctx.set_fill_style(&JsValue::from("black")),
+			goban::pieces::stones::Color::White => ctx.set_fill_style(&JsValue::from("white")),
+			_ => (),
 		} 
-
-		// Draw dummy stone
 		ctx.begin_path() ;
 		ctx.arc(self.view.coords[xidx][yidx][0], self.view.coords[xidx][yidx][1], stone_radius, 0.0, std::f64::consts::PI*2.0).unwrap();
 		ctx.fill();
@@ -373,11 +382,9 @@ pub fn start () {
 	let mygame_rc = Rc::new(RefCell::new(mygame)) ;
 
 	// Draw Goban for the Go-game
-	// mygame.draw_ban() ;
 	mygame_rc.as_ref().borrow().draw_ban() ;
 
 	// Bind Events to the Goban
-	
 	let entered = Rc::new(Cell::new(false)) ;
 
 	{
@@ -417,9 +424,7 @@ pub fn start () {
 		let mygame_closure = mygame_rc.clone() ;
 		let entered = entered.clone() ;
 		let closure = Closure::wrap(Box::new(move|event: web_sys::MouseEvent|{
-			if entered.get() {
-				mygame_closure.as_ref().borrow_mut().put_stone(event.offset_x() as f64, event.offset_y() as f64) ;
-			}
+			mygame_closure.as_ref().borrow_mut().put_stone(event.offset_x() as f64, event.offset_y() as f64) ;
 		})as Box<dyn FnMut(_)>) ;
 		mygame_rc.as_ref().borrow_mut().view.canvas_stone.add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref()).unwrap() ;
 		closure.forget() ;
